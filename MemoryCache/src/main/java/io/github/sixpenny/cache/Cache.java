@@ -18,4 +18,26 @@ public interface Cache {
     public void clear();
 
     public int size();
+
+    /**
+     * 获取缓存系统的统计信息.
+     * 格式：
+     *  {
+     *  "totalHitCount": "1",
+     *  "totalQueryCount": "3",
+     *  "keys": [{
+     *      "hitCount": 1,
+     *      "expireTime": 300000,
+     *      "createTime": 1519699861567,
+     *      "value": "hahaha",
+     *      "key": "a",
+     *      "lastUpdateTime": 1519699861567
+     *      }
+     *   ],
+     *  "missingRate": "0.67",
+     *  "hitRate": "0.33"
+     *  }
+     * @return
+     */
+    public String statisticRecord();
 }

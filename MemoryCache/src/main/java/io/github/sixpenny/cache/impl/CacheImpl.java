@@ -1,8 +1,14 @@
 package io.github.sixpenny.cache.impl;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.alibaba.fastjson.JSONArray;
+import com.alibaba.fastjson.JSONObject;
 import io.github.sixpenny.cache.Cache;
 import io.github.sixpenny.cache.Configuration;
 
@@ -60,5 +66,57 @@ public class CacheImpl implements Cache {
 
     public int size() {
         return container.size();
+    }
+
+    public String statisticRecord() {
+        BigDecimal totalQuery = new BigDecimal(totalQueryCount.longValue());
+        BigDecimal totalHit = new BigDecimal(totalHitCount.longValue());
+        BigDecimal missingCount = totalQuery.subtract(totalHit);
+        boolean isQueryZero = totalQuery.compareTo(BigDecimal.ZERO) == 0;
+        BigDecimal hitRate = isQueryZero?
+                BigDecimal.ONE
+                : totalHit.divide(totalQuery, 2, RoundingMode.HALF_UP);
+        BigDecimal missingRate = isQueryZero?
+                BigDecimal.ZERO :
+                missingCount.divide(totalQuery, 2, RoundingMode.HALF_UP);
+
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("totalQueryCount", totalQuery.toPlainString());
+        jsonObject.put("totalHitCount", totalHit.toPlainString());
+        jsonObject.put("hitRate", hitRate.toPlainString());
+        jsonObject.put("missingRate", missingRate.toPlainString());
+
+        JSONArray keys = new JSONArray();
+        Set<Map.Entry<String, CacheItem>> items = container.entrySet();
+        for (Map.Entry<String, CacheItem> itemEntry : items) {
+            String key = itemEntry.getKey();
+            CacheItem cacheItem = itemEntry.getValue();
+            JSONObject itemJson = new JSONObject();
+            itemJson.put("key", key);
+            itemJson.put("value", cacheItem.getValue().toString());
+            itemJson.put("hitCount", cacheItem.getHitCount());
+            itemJson.put("createTime", cacheItem.getCreateTime());
+            itemJson.put("lastUpdateTime", cacheItem.getLastUpdateTime());
+            itemJson.put("expireTime", cacheItem.getExpireTime());
+            keys.add(itemJson);
+        }
+        jsonObject.put("keys", keys);
+        return jsonObject.toJSONString();
+    }
+
+    public AtomicLong getTotalQueryCount() {
+        return totalQueryCount;
+    }
+
+    public void setTotalQueryCount(AtomicLong totalQueryCount) {
+        this.totalQueryCount = totalQueryCount;
+    }
+
+    public AtomicLong getTotalHitCount() {
+        return totalHitCount;
+    }
+
+    public void setTotalHitCount(AtomicLong totalHitCount) {
+        this.totalHitCount = totalHitCount;
     }
 }
