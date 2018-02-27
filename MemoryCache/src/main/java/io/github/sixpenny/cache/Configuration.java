@@ -9,6 +9,8 @@ public class Configuration {
 
     public static Integer cacheSize = Integer.MAX_VALUE;
 
+    public static Integer concurrencyLevel = 1 << 4;
+
     //TODO
 //    public static EvcitionStragety evcitionStragety = null;
 

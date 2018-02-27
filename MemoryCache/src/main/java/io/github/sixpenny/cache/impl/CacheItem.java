@@ -1,7 +1,5 @@
 package io.github.sixpenny.cache.impl;
 
-import io.github.sixpenny.cache.Configuration;
-
 /**
  * Created by liufengquan on 2018/2/26.
  */
@@ -14,50 +12,36 @@ public class CacheItem {
     private Long hitCount;
     private Long createTime;
     private Long lastUpdateTime;
+    private Long ttl;
 
     CacheItem(String key, Object value, Long ttl) {
         this.key = key;
         this.value = value;
         Long currentTimeMillis = System.currentTimeMillis();
+        this.ttl = ttl;
         this.expireTime =  + ttl;
         this.createTime = currentTimeMillis;
         this.hitCount = 0L;
         this.lastUpdateTime = currentTimeMillis;
     }
 
-    public String getKey() {
+    String getKey() {
         return key;
     }
 
-    public void setKey(String key) {
-        this.key = key;
-    }
-
-    public Object getValue() {
+    Object getValue() {
         return value;
     }
 
-    public void setValue(Object value) {
-        this.value = value;
-    }
-
-    public Long getExpireTime() {
+    Long getExpireTime() {
         return expireTime;
     }
 
-    public void setExpireTime(Long expireTime) {
-        this.expireTime = expireTime;
-    }
-
-    public Long getHitCount() {
+    Long getHitCount() {
         return hitCount;
     }
 
-    public void setHitCount(Long hitCount) {
-        this.hitCount = hitCount;
-    }
-
-    synchronized public void  addHitCount() {
+    synchronized void  addHitCount() {
         this.hitCount++;
     }
 
@@ -65,15 +49,19 @@ public class CacheItem {
         return createTime;
     }
 
-    public void setCreateTime(Long createTime) {
-        this.createTime = createTime;
-    }
-
-    public Long getLastUpdateTime() {
+    Long getLastUpdateTime() {
         return lastUpdateTime;
     }
 
-    public void setLastUpdateTime(Long lastUpdateTime) {
-        this.lastUpdateTime = lastUpdateTime;
+    public void refresh() {
+        Long currentTimeMills = System.currentTimeMillis();
+        lastUpdateTime = currentTimeMills;
+        expireTime = currentTimeMills + ttl;
+
     }
+
+    public boolean isExpired() {
+        return expireTime < System.currentTimeMillis();
+    }
+
 }

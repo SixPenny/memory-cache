@@ -18,14 +18,17 @@ import io.github.sixpenny.cache.Configuration;
  */
 public class CacheImpl implements Cache {
 
-    private ConcurrentHashMap<String, CacheItem> container = new ConcurrentHashMap<String, CacheItem>();
+    private ConcurrentHashMap<String, CacheItem> container;
 
     private AtomicLong totalQueryCount;
     private AtomicLong totalHitCount;
+    private Integer capacity;
 
     public CacheImpl() {
         totalHitCount = new AtomicLong(0L);
         totalQueryCount = new AtomicLong(0L);
+        capacity = Configuration.cacheSize;
+        container = new ConcurrentHashMap<String, CacheItem>(capacity, 1f, Configuration.concurrencyLevel);
     }
 
     public void put(String key, Object value) {
@@ -40,7 +43,7 @@ public class CacheImpl implements Cache {
     public Object get(String key) {
         totalQueryCount.incrementAndGet();
         CacheItem cacheItem = container.get(key);
-        if (cacheItem != null) {
+        if (ensureValid(cacheItem) && cacheItem != null) {
             totalHitCount.incrementAndGet();
             cacheItem.addHitCount();
             return cacheItem.getValue();
@@ -58,6 +61,21 @@ public class CacheImpl implements Cache {
             return cacheItem.getValue();
         }
         return null;
+    }
+
+    private boolean ensureValid(CacheItem cacheItem) {
+        if (cacheItem.isExpired()) {
+            container.remove(cacheItem.getKey());
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 检查容量，如果已满就按照清理策略清理一项.
+     */
+    private void enusureCapacity() {
+
     }
 
     public void clear() {
@@ -89,10 +107,9 @@ public class CacheImpl implements Cache {
         JSONArray keys = new JSONArray();
         Set<Map.Entry<String, CacheItem>> items = container.entrySet();
         for (Map.Entry<String, CacheItem> itemEntry : items) {
-            String key = itemEntry.getKey();
             CacheItem cacheItem = itemEntry.getValue();
             JSONObject itemJson = new JSONObject();
-            itemJson.put("key", key);
+            itemJson.put("key", cacheItem.getKey());
             itemJson.put("value", cacheItem.getValue().toString());
             itemJson.put("hitCount", cacheItem.getHitCount());
             itemJson.put("createTime", cacheItem.getCreateTime());
