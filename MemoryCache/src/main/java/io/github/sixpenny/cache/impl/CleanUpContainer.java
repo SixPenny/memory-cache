@@ -8,10 +8,10 @@ public interface CleanUpContainer {
 
     public void removeItem(CacheItem cacheItem);
 
-    public CacheItem getHeadItemAndRemove();
+    public CacheItem removalItemAccordingly();
 
     /**
      * 使用时更新.
      */
-    public void used();
+    public void used(CacheItem cacheItem);
 }

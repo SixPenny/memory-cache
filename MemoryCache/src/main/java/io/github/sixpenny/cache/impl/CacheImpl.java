@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import io.github.sixpenny.cache.Cache;
+import io.github.sixpenny.cache.CleanUpStrategy;
 import io.github.sixpenny.cache.Configuration;
 
 /**
@@ -18,24 +19,40 @@ import io.github.sixpenny.cache.Configuration;
  */
 public class CacheImpl implements Cache {
 
-    private ConcurrentHashMap<String, CacheItem> container;
+    ConcurrentHashMap<String, CacheItem> container;
+    private Configuration configuration;
 
     private AtomicLong totalQueryCount;
     private AtomicLong totalHitCount;
     private Integer capacity;
+    private CleanUpStrategy cleanUpStrategy;
 
-    public CacheImpl() {
+    public CacheImpl(Configuration configuration) {
         totalHitCount = new AtomicLong(0L);
         totalQueryCount = new AtomicLong(0L);
-        capacity = Configuration.cacheSize;
-        container = new ConcurrentHashMap<String, CacheItem>(capacity, 1f, Configuration.concurrencyLevel);
+        capacity = configuration.getCacheSize();
+        this.configuration = configuration;
+        container = new ConcurrentHashMap<String, CacheItem>(capacity, 1f, configuration.getConcurrencyLevel());
+        cleanUpStrategy = getCleanUpStrategy();
+    }
+
+    /**
+     * 获取清理策略，默认LRU.
+     * @return
+     */
+    private CleanUpStrategy getCleanUpStrategy() {
+        if (Configuration.CLEAN_UP_STRATEGY_FIFO.equals(configuration.getCleanUpStrategy())) {
+            return new LRUStrategy(this);
+        }
+        return new LRUStrategy(this);
     }
 
     public void put(String key, Object value) {
-        this.put(key, value, Configuration.ttl);
+        this.put(key, value, configuration.getTtl());
     }
 
     public void put(String key, Object value, Long ttl) {
+        ensureCapacity();
         CacheItem cacheItem = new CacheItem(key, value, ttl);
         container.put(key, cacheItem);
     }
@@ -45,6 +62,7 @@ public class CacheImpl implements Cache {
         CacheItem cacheItem = container.get(key);
         if (ensureValid(cacheItem) && cacheItem != null) {
             totalHitCount.incrementAndGet();
+            cacheItem.refresh();
             cacheItem.addHitCount();
             return cacheItem.getValue();
         }
@@ -74,8 +92,10 @@ public class CacheImpl implements Cache {
     /**
      * 检查容量，如果已满就按照清理策略清理一项.
      */
-    private void enusureCapacity() {
-
+    private void ensureCapacity() {
+        if (capacity <= size()) {
+            cleanUpStrategy.clean();
+        }
     }
 
     public void clear() {
