@@ -25,7 +25,7 @@ public class CacheImpl implements Cache {
     private AtomicLong totalQueryCount;
     private AtomicLong totalHitCount;
     private Integer capacity;
-    private CleanUpStrategy cleanUpStrategy;
+    private CleanUpContainer cleanUpStrategy;//内部使用
 
     public CacheImpl(Configuration configuration) {
         totalHitCount = new AtomicLong(0L);
@@ -40,9 +40,15 @@ public class CacheImpl implements Cache {
      * 获取清理策略，默认LRU.
      * @return
      */
-    private CleanUpStrategy getCleanUpStrategy() {
+    private CleanUpContainer getCleanUpStrategy() {
         if (Configuration.CLEAN_UP_STRATEGY_FIFO.equals(configuration.getCleanUpStrategy())) {
             return new LRUStrategy(this);
+        }
+        if (Configuration.CLEAN_UP_STRATEGY_FIFO.equals(configuration.getCleanUpStrategy())) {
+            return new FIFOStrategy(this);
+        }
+        if (Configuration.CLEAN_UP_STRATEGY_LFU.equals(configuration.getCleanUpStrategy())) {
+            return new LFUStragety(this);
         }
         return new LRUStrategy(this);
     }
@@ -54,6 +60,7 @@ public class CacheImpl implements Cache {
     public void put(String key, Object value, Long ttl) {
         ensureCapacity();
         CacheItem cacheItem = new CacheItem(key, value, ttl);
+        cleanUpStrategy.addItem(cacheItem);
         container.put(key, cacheItem);
     }
 
@@ -63,6 +70,7 @@ public class CacheImpl implements Cache {
         if (ensureValid(cacheItem) && cacheItem != null) {
             totalHitCount.incrementAndGet();
             cacheItem.refresh();
+            cleanUpStrategy.used(cacheItem);
             cacheItem.addHitCount();
             return cacheItem.getValue();
         }
@@ -94,7 +102,7 @@ public class CacheImpl implements Cache {
      */
     private void ensureCapacity() {
         if (capacity <= size()) {
-            cleanUpStrategy.clean();
+            ((CleanUpStrategy)cleanUpStrategy).clean();
         }
     }
 
